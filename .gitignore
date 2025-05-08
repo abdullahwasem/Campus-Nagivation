@@ -1,0 +1,54 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# Node.js dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro (React Native bundler)
+.metro-health-check*
+
+# Debugging files
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS system files
+.DS_Store
+*.pem
+
+# Local environment files (dotenv)
+.env*.local
+
+# Python virtual environment folder
+myenv/
+
+# Python bytecode
+*.pyc
+*.pyo
+
+# Python dependency files
+requirements.txt
+
+# Optional: Ignore IDE configuration files (for VSCode)
+.vscode/
+
+# Optional: Ignore large files (if needed, depending on your project)
+*.log
+*.dylib
+*.so
+
+backend/myenv/
