@@ -104,17 +104,47 @@ const CameraScreen = () => {
   const handleRetake = () => {
     setIsPreview(false);
     setPhotoUri(null);
+    setMapData({ building: null, distance: null });
   };
 
   // Interface for response from backend
   interface LandmarkRecognitionResponse {
     building: string;
     confidence: number;
+    distance: number;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
   }
 
   // Type guard to check if building name is valid
   const isBuildingName = (building: string): building is BuildingName => {
-    return ['Building A', 'Building B', 'Building C', 'Building D', 'Building E'].includes(building);
+    return ['Block A', 'Block B', 'Block C', 'Block D', 'Block E', 'Block F'].includes(building);
+  };
+
+  // Haversine formula to calculate distance between two lat/lng points in meters
+  function getDistanceFromLatLonInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371000; // Radius of the earth in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in meters
+    return d;
+  }
+
+  // Building coordinates (should match MapView)
+  const buildingCoords: Record<string, { latitude: number; longitude: number }> = {
+    'Block A': { latitude: 31.48222964940498, longitude: 74.3035499304804 },
+    'Block B': { latitude: 31.481067391919904, longitude: 74.3030048329072 },
+    'Block C': { latitude: 31.481178398975324, longitude: 74.30288072461302 },
+    'Block D': { latitude: 31.48107824241253, longitude: 74.30332310850635 },
+    'Block E': { latitude: 31.481559857421292, longitude: 74.30378519760922 },
+    'Block F': { latitude: 31.4805443557776, longitude: 74.30417136303642 },
   };
 
   const handleGoForward = async () => {
@@ -122,17 +152,13 @@ const CameraScreen = () => {
       try {
         const formData = new FormData();
         const fileInfo = await FileSystem.getInfoAsync(photoUri.uri);
-        console.log('File info:', fileInfo);
-
         const fileObject = {
           uri: photoUri.uri,
           type: 'image/jpeg',
           name: 'photo.jpg',
         };
-
         formData.append('image', fileObject as any);
-        const backendUrl = 'http://172.20.10.2:5001/recognize_landmark';
-
+        const backendUrl = 'http://192.168.1.9:5002/recognize_landmark';
         const responseFromBackend = await axios.post<LandmarkRecognitionResponse>(backendUrl, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -140,33 +166,17 @@ const CameraScreen = () => {
           },
           timeout: 10000,
         });
-
-        console.log('Response received:', responseFromBackend.status);
-        console.log('Response data:', responseFromBackend.data);
-
         if (responseFromBackend && responseFromBackend.data) {
-          const { building, confidence } = responseFromBackend.data;
-
-          // Type assertion to BuildingName
-          const dynamicData = {
-            building: building as BuildingName,
-            distance: confidence,
-          };
-
-          setMapData(dynamicData);
-
-          console.log('Recognition result:', building, confidence);
+          setMapData({
+            building: responseFromBackend.data.building,
+            distance: responseFromBackend.data.distance
+          });
+          setIsPreview(false);
+          setPhotoUri(null);
         } else {
-          console.error('No valid response received from backend');
           alert('Error processing the image, no valid response');
         }
       } catch (error: any) {
-        console.error('Error sending image to backend:', error);
-        console.error('Error details:', error.message);
-        if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
-        }
         alert(`Error processing the image: ${error.message}`);
       }
     } else {
@@ -236,29 +246,6 @@ const CameraScreen = () => {
         
         <TouchableOpacity style={styles.controlButton} onPress={toggleCameraType}>
           <Ionicons name="camera-reverse" size={28} color="white" />
-        </TouchableOpacity>
-      </View>
-      
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerTab}>
-          <Ionicons name="home-outline" size={24} color="#BCBCBC" />
-          <Text style={styles.tabText}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.footerTab}>
-          <Ionicons name="camera" size={24} color="#5B37B7" />
-          <Text style={styles.activeTabText}>Camera</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.footerTab}>
-          <Ionicons name="map-outline" size={24} color="#BCBCBC" />
-          <Text style={styles.tabText}>Map</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.footerTab}>
-          <Ionicons name="information-circle-outline" size={24} color="#BCBCBC" />
-          <Text style={styles.tabText}>Info</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -375,30 +362,6 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     backgroundColor: '#5B37B7',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  footerTab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-  activeTabText: {
-    color: '#5B37B7',
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  tabText: {
-    color: '#BCBCBC',
-    fontSize: 12,
-    marginTop: 4,
   },
 });
 

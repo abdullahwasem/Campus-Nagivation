@@ -6,7 +6,7 @@ import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Define the valid keys for the buildings
-type BuildingName = 'Building A' | 'Building B' | 'Building C' | 'Building D' | 'Building E'| 'Building F';
+type BuildingName = 'Block A' | 'Block B' | 'Block C' | 'Block D' | 'Block E' | 'Block F';
 
 // Define MapView component that will accept `building` and `distance` as props
 interface MapViewProps {
@@ -18,7 +18,7 @@ interface MapViewProps {
 const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigation }) => {
   // Type guard function to check if building is a valid BuildingName
   const isBuildingName = (building: string): building is BuildingName => {
-    return ['Building A', 'Building B', 'Building C', 'Building D', 'Building E', 'Building F'].includes(building);
+    return ['Block A', 'Block B', 'Block C', 'Block D', 'Block E', 'Block F'].includes(building);
   };
 
   // Building data with coordinates and additional info
@@ -29,42 +29,42 @@ const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigati
     floors?: number;
     facilities?: string[];
   }> = {
-    'Building A': { 
+    'Block A': { 
       latitude: 31.48222964940498, 
       longitude: 74.3035499304804,
       info: 'Main Academic Building',
       floors: 4,
       facilities: ['Labs', 'Classrooms', 'Faculty Offices']
     },
-    'Building B': { 
+    'Block B': { 
       latitude: 31.481067391919904, 
       longitude: 74.3030048329072,
       info: 'Engineering Department',
       floors: 3,
       facilities: ['Computer Labs', 'Lecture Halls', 'Study Areas']
     },
-    'Building C': { 
+    'Block C': { 
       latitude: 31.481178398975324, 
       longitude: 74.30288072461302,
       info: 'Science Complex',
       floors: 5,
       facilities: ['Research Labs', 'Conference Rooms', 'Library']
     },
-    'Building D': { 
+    'Block D': { 
       latitude: 31.48107824241253, 
       longitude: 74.30332310850635,
       info: 'Student Center',
       floors: 2,
       facilities: ['Cafeteria', 'Study Areas', 'Student Services']
     },
-    'Building E': { 
+    'Block E': { 
       latitude: 31.481559857421292, 
       longitude: 74.30378519760922,
       info: 'Administration Block',
       floors: 3,
       facilities: ['Offices', 'Meeting Rooms', 'Auditorium']
     },
-    'Building F': { 
+    'Block F': { 
       latitude: 31.4805443557776, 
       longitude: 74.30417136303642,
       info: 'Sports Complex',
@@ -114,6 +114,50 @@ const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigati
     return 'Low';
   };
 
+  const getDistanceText = () => {
+    if (distance < 1) {
+      return `${(distance * 100).toFixed(1)} cm`;
+    } else {
+      return `${distance.toFixed(1)} m`;
+    }
+  };
+
+  // Function to calculate coordinates at a given distance and bearing from a point
+  function calculateCoordinatesAtDistance(lat: number, lng: number, distanceInMeters: number, bearingDegrees = 0): { latitude: number; longitude: number } {
+    const R = 6378137; // Earth's radius in meters
+    const bearing = bearingDegrees * Math.PI / 180;
+    const lat1 = lat * Math.PI / 180;
+    const lng1 = lng * Math.PI / 180;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(distanceInMeters / R) +
+      Math.cos(lat1) * Math.sin(distanceInMeters / R) * Math.cos(bearing)
+    );
+    const lng2 = lng1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(distanceInMeters / R) * Math.cos(lat1),
+      Math.cos(distanceInMeters / R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+    return {
+      latitude: lat2 * 180 / Math.PI,
+      longitude: lng2 * 180 / Math.PI
+    };
+  }
+
+  // Get the building's coordinates from props or state
+  const buildingCoords = isBuildingName(building) ? buildingData[building] : null;
+  const MIN_DISPLAY_DISTANCE = 5; // meters
+  const displayDistance = distance < MIN_DISPLAY_DISTANCE ? MIN_DISPLAY_DISTANCE : distance;
+
+  const userPosition = buildingCoords && distance
+    ? calculateCoordinatesAtDistance(
+        buildingCoords.latitude,
+        buildingCoords.longitude,
+        displayDistance, // use display distance for pin
+        0 // bearing (0 = due north)
+      )
+    : null;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Map View */}
@@ -125,6 +169,7 @@ const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigati
         showsBuildings={true}
         mapType="standard"
       >
+        {/* Building Markers */}
         {Object.entries(buildingData).map(([buildingName, data], index) => (
           <Marker
             key={index}
@@ -142,21 +187,24 @@ const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigati
             </Callout>
           </Marker>
         ))}
-      </MapView>
 
-      {/* Top Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation?.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.navbarTitle}>Campus Map</Text>
-        <TouchableOpacity style={styles.infoButton} onPress={toggleInfo}>
-          <MaterialIcons name={showInfo ? "info" : "info-outline"} size={24} color="white" />
-        </TouchableOpacity>
-      </View>
+        {/* User Position Marker */}
+        {userPosition && (
+          <Marker
+            coordinate={userPosition}
+            title="Your Position"
+            description={`${distance.toFixed(1)} m from ${building}`}
+            pinColor="#FF3B30"
+          >
+            <Callout tooltip>
+              <View style={styles.calloutContainer}>
+                <Text style={styles.calloutTitle}>Your Position</Text>
+                <Text style={styles.calloutInfo}>{`${distance.toFixed(1)} m from ${building}`}</Text>
+              </View>
+            </Callout>
+          </Marker>
+        )}
+      </MapView>
 
       {/* Building Info Card */}
       {showInfo && isBuildingName(building) && (
@@ -229,6 +277,29 @@ const MapViewComponent: React.FC<MapViewProps> = ({ building, distance, navigati
           <MaterialIcons name="zoom-out-map" size={22} color="#5E60CE" />
         </TouchableOpacity>
       </View>
+
+      {/* Add a small info card at the top of the map view */}
+      {showInfo && isBuildingName(building) && (
+        <View style={{
+          position: 'absolute',
+          top: 20,
+          left: 20,
+          right: 20,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          borderRadius: 12,
+          padding: 14,
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 4,
+          elevation: 4,
+          zIndex: 100,
+        }}>
+          <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#5E60CE' }}>Block Detected: {building}</Text>
+          <Text style={{ fontSize: 16, color: '#333', marginTop: 4 }}>Distance: {distance ? distance.toFixed(2) : '--'} m</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -241,31 +312,6 @@ const styles = StyleSheet.create({
   map: {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
-  },
-  navbar: {
-    position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(94, 96, 206, 0.9)',
-    borderRadius: 0,
-    zIndex: 10,
-  },
-  backButton: {
-    padding: 8,
-  },
-  navbarTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  infoButton: {
-    padding: 8,
   },
   infoCard: {
     position: 'absolute',
@@ -419,6 +465,23 @@ const styles = StyleSheet.create({
   calloutDetail: {
     fontSize: 12,
     color: '#5E60CE',
-  },});
+  },
+  distanceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  distanceText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  distanceValue: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
 
-  export default MapViewComponent;;
+export default MapViewComponent;
