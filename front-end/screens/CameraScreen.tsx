@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 import MapView from '../../components/MapView';
 import PhotoPreview from '../../components/PhotoPreview';
+import * as Location from 'expo-location';
 
 type BuildingName = 'Building A' | 'Building B' | 'Building C' | 'Building D' | 'Building E'| 'Building F';
 
@@ -158,7 +159,7 @@ const CameraScreen = () => {
           name: 'photo.jpg',
         };
         formData.append('image', fileObject as any);
-        const backendUrl = 'http://192.168.1.9:5002/recognize_landmark';
+        const backendUrl = 'http://192.168.0.102:5002/recognize_landmark';
         const responseFromBackend = await axios.post<LandmarkRecognitionResponse>(backendUrl, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -167,10 +168,32 @@ const CameraScreen = () => {
           timeout: 10000,
         });
         if (responseFromBackend && responseFromBackend.data) {
-          setMapData({
-            building: responseFromBackend.data.building,
-            distance: responseFromBackend.data.distance
-          });
+          // Get real-time device location
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            alert('Permission to access location was denied');
+            return;
+          }
+          const deviceLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          const buildingCoord = buildingCoords[responseFromBackend.data.building];
+          if (buildingCoord && deviceLocation?.coords) {
+            // Calculate distance using real-time device location
+            const realDistance = getDistanceFromLatLonInMeters(
+              deviceLocation.coords.latitude,
+              deviceLocation.coords.longitude,
+              buildingCoord.latitude,
+              buildingCoord.longitude
+            );
+            setMapData({
+              building: responseFromBackend.data.building,
+              distance: realDistance
+            });
+          } else {
+            setMapData({
+              building: responseFromBackend.data.building,
+              distance: responseFromBackend.data.distance
+            });
+          }
           setIsPreview(false);
           setPhotoUri(null);
         } else {
